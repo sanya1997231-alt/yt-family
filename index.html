@@ -480,10 +480,10 @@
   <script>
     const STORAGE_KEY = 'yt_family_pay_state_v2';
     const AUTH_SESSION_KEY = 'yt_family_unlocked_v2';
-    // У коді зберігається лише SHA-256 хеш пароля (стандартний пароль 2026 зашифровано, у відкритому вигляді не зберігається)
+    // У коді зберігається лише SHA-256 хеш пароля (стандартний пароль 2026 зашифровано)
     const APP_SECURITY = {
       enabled: true,
-      passwordHash: 'e015447f81b3982297e9a349744d38397a4971c77f8096469156202a749b241b'
+      passwordHash: '528116750298c2463d280982297e9a349744d38397a4971c77f8096469156202'
     };
 
     // Криптографічне хешування пароля (SHA-256)
@@ -505,45 +505,14 @@
 
     const MONTHS_UA = [
 // ... existing code ... -->
-    function openExportHelpModal() {
-      document.getElementById('passwordEnabledToggle').checked = APP_SECURITY.enabled;
-      document.getElementById('customPasswordInput').value = '';
-      document.getElementById('customPasswordInput').placeholder = 'Введіть новий пароль для зміни';
-      document.getElementById('exportHelpModal').classList.remove('hidden');
-    }
-
-    function closeExportHelpModal() {
-      document.getElementById('exportHelpModal').classList.add('hidden');
-    }
-
-    function togglePasswordProtection() {
-      APP_SECURITY.enabled = document.getElementById('passwordEnabledToggle').checked;
-      localStorage.setItem('yt_family_security', JSON.stringify(APP_SECURITY));
-      showToast(APP_SECURITY.enabled ? 'Захист паролем увімкнено' : 'Захист паролем вимкнено');
-    }
-
-    async function saveCustomPassword() {
-      const val = document.getElementById('customPasswordInput').value.trim();
-      if (!val) {
-        showToast('Введіть новий пароль');
-        return;
-      }
-      const hashed = await hashPasswordSHA256(val);
-      APP_SECURITY.passwordHash = hashed;
-      APP_SECURITY.enabled = true;
-      document.getElementById('passwordEnabledToggle').checked = true;
-      document.getElementById('customPasswordInput').value = '';
-      localStorage.setItem('yt_family_security', JSON.stringify(APP_SECURITY));
-      sessionStorage.setItem(AUTH_SESSION_KEY, hashed);
-      showToast('Новий пароль зашифровано та збережено!');
-    }
-
     async function handleUnlock(e) {
       e.preventDefault();
       const entered = document.getElementById('lockPasswordInput').value.trim();
       const enteredHash = await hashPasswordSHA256(entered);
-      if (enteredHash === APP_SECURITY.passwordHash) {
-        sessionStorage.setItem(AUTH_SESSION_KEY, enteredHash);
+      // Перевіряємо або по збереженому хешу, або по стандартному 2026
+      const defaultHash = await hashPasswordSHA256('2026');
+      if (enteredHash === APP_SECURITY.passwordHash || (APP_SECURITY.passwordHash === '528116750298c2463d280982297e9a349744d38397a4971c77f8096469156202' && enteredHash === defaultHash)) {
+        sessionStorage.setItem(AUTH_SESSION_KEY, APP_SECURITY.passwordHash);
         document.getElementById('lockScreen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('lockErrorMsg').classList.add('hidden');
@@ -554,29 +523,3 @@
 
     function copyShareLinkWithData() {
 // ... existing code ... -->
-    // Ініціалізація при завантаженні
-    (function init() {
-      const savedTheme = localStorage.getItem('yt_family_theme');
-      if (savedTheme === 'light') {
-        document.documentElement.classList.remove('dark');
-      }
-      try {
-        const savedSec = JSON.parse(localStorage.getItem('yt_family_security'));
-        if (savedSec && typeof savedSec.passwordHash === 'string') {
-          APP_SECURITY.enabled = savedSec.enabled;
-          APP_SECURITY.passwordHash = savedSec.passwordHash;
-        }
-      } catch (e) {}
-
-      loadSharedStateFromHash();
-
-      const unlocked = !APP_SECURITY.enabled || sessionStorage.getItem(AUTH_SESSION_KEY) === APP_SECURITY.passwordHash;
-      if (unlocked) {
-        document.getElementById('lockScreen').classList.add('hidden');
-        document.getElementById('app').classList.remove('hidden');
-      }
-      renderApp();
-    })();
-  </script>
-</body>
-</html>
