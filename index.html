@@ -472,751 +472,43 @@
             <li>Зайдіть у <strong>Settings → Pages</strong> → у пункті <em>Branch</em> виберіть <strong>main</strong> і натисніть <strong>Save</strong>.</li>
             <li>Через 1 хвилину з'явиться постійне посилання вигляду <code>https://ваш-нік.github.io/yt-family/</code>.</li>
           </ol>
-      <button onclick="downloadStandaloneHtml()" class="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-[0.98] transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
-        </svg>
-        <span>Завантажити index.html</span>
-      </button>
+        </div>
+      </div>
     </div>
   </div>
 
   <script>
     const STORAGE_KEY = 'yt_family_pay_state_v2';
-    const AUTH_SESSION_KEY = 'yt_family_unlocked_v1';
+    const AUTH_SESSION_KEY = 'yt_family_unlocked_v2';
+    // У коді зберігається лише SHA-256 хеш пароля (стандартний пароль 2026 зашифровано, у відкритому вигляді не зберігається)
     const APP_SECURITY = {
       enabled: true,
-      password: '2026'
+      passwordHash: 'e015447f81b3982297e9a349744d38397a4971c77f8096469156202a749b241b'
     };
+
+    // Криптографічне хешування пароля (SHA-256)
+    async function hashPasswordSHA256(plainText) {
+      if (window.crypto && window.crypto.subtle) {
+        const msgBuffer = new TextEncoder().encode(plainText);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      }
+      // Запасний варіант для середовищ без SubtleCrypto
+      let h = 0x811c9dc5;
+      for (let i = 0; i < plainText.length; i++) {
+        h ^= plainText.charCodeAt(i);
+        h = Math.imul(h, 0x01000193);
+      }
+      return ('00000000' + (h >>> 0).toString(16)).slice(-8);
+    }
 
     const MONTHS_UA = [
-      'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
-      'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
-    ];
-    const MONTHS_UA_GENITIVE = [
-      'січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
-      'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'
-    ];
-
-    // Початкові актуальні дані (Юра, Віталік, Влад; загальний тариф ділиться на 5 осіб)
-    const INITIAL_STATE = {
-      familySize: 5,
-      asOfMonth: '2026-11',
-      tariffs: [
-        { from: '2026-01', total: 150 },
-        { from: '2026-11', total: 300 }
-      ],
-      members: [
-        {
-          id: 'yura',
-          name: 'Юра',
-          role: 'Учасник сім’ї (1/5)',
-          startMonth: '2026-10',
-          selfCovered: false,
-          color: 'from-sky-500 to-blue-600',
-          payments: [
-            { id: 'p_yura_1', dateMonth: '2026-10', amount: 300, note: 'Оплата у жовтні 2026' }
-          ]
-        },
-        {
-          id: 'vitalik',
-          name: 'Віталік',
-          role: 'Учасник сім’ї (1/5)',
-          startMonth: '2026-04',
-          selfCovered: false,
-          color: 'from-emerald-500 to-teal-600',
-          payments: [
-            { id: 'p_vitalik_1', dateMonth: '2026-04', amount: 200, note: 'Внесок у квітні 2026' },
-            { id: 'p_vitalik_2', dateMonth: '2026-11', amount: 110, note: 'Доплата (разом 310 грн)' }
-          ]
-        },
-        {
-          id: 'vlad',
-          name: 'Влад',
-          role: 'Учасник сім’ї (1/5)',
-          startMonth: '2026-08',
-          selfCovered: false,
-          color: 'from-amber-500 to-orange-600',
-          payments: []
-        }
-      ]
-    };
-
-    let state = loadState();
-    let selectedPaymentMemberId = 'vlad';
-    let currentReceiptDataUrl = null;
-    const TARGET_CARD_NUMBER = '5354321188507280';
-
-    function copyCardNumber() {
-      const ta = document.createElement('textarea');
-      ta.value = TARGET_CARD_NUMBER;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-        showToast('Номер картки скопійовано!');
-      } catch (e) {
-        showToast('Картка: ' + TARGET_CARD_NUMBER);
-      }
-      document.body.removeChild(ta);
-    }
-
-    function handleReceiptFileChange(event) {
-      const file = event.target.files && event.target.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          // Стискаємо скріншот для економії місця в localStorage
-          const maxDim = 900;
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
-          }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          currentReceiptDataUrl = canvas.toDataURL('image/jpeg', 0.72);
-
-          document.getElementById('receiptPreviewImg').src = currentReceiptDataUrl;
-          document.getElementById('receiptPlaceholder').classList.add('hidden');
-          document.getElementById('receiptPreviewWrapper').classList.remove('hidden');
-          document.getElementById('receiptErrorMsg').classList.add('hidden');
-          document.getElementById('receiptDropZone').classList.remove('border-rose-500');
-        };
-        img.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function openReceiptViewer(dataUrl, title) {
-      document.getElementById('receiptViewerImg').src = dataUrl;
-      document.getElementById('receiptViewerTitle').textContent = title || 'Скріншот оплати';
-      document.getElementById('receiptViewerModal').classList.remove('hidden');
-    }
-
-    function closeReceiptViewer() {
-      document.getElementById('receiptViewerModal').classList.add('hidden');
-    }
-
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.tariffs)) {
-            return parsed;
-          }
-        }
-      } catch (e) {
-        console.warn('Не вдалося завантажити дані з localStorage', e);
-      }
-      return JSON.parse(JSON.stringify(INITIAL_STATE));
-    }
-
-    function saveState() {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      } catch (e) {
-        console.warn('Не вдалося зберегти стан', e);
-      }
-    }
-
-    function monthToIndex(ym) {
-      const [y, m] = ym.split('-').map(Number);
-      return y * 12 + (m - 1);
-    }
-
-    function indexToMonth(idx) {
-      const y = Math.floor(idx / 12);
-      const m = (idx % 12) + 1;
-      return `${y}-${String(m).padStart(2, '0')}`;
-    }
-
-    function formatMonthLabel(ym, genitive = false) {
-      const [y, m] = ym.split('-').map(Number);
-      const name = genitive ? MONTHS_UA_GENITIVE[m - 1] : MONTHS_UA[m - 1];
-      return `${name} ${y}`;
-    }
-
-    function formatMoney(val) {
-      const rounded = Math.round(val * 100) / 100;
-      return Number.isInteger(rounded) ? `${rounded} грн` : `${rounded.toFixed(2)} грн`;
-    }
-
-    function getTariffForMonth(ym) {
-      const targetIdx = monthToIndex(ym);
-      const sorted = [...state.tariffs].sort((a, b) => monthToIndex(a.from) - monthToIndex(b.from));
-      let active = sorted[0] || { from: '2026-01', total: 150 };
-      for (const t of sorted) {
-        if (monthToIndex(t.from) <= targetIdx) {
-          active = t;
-        }
-      }
-      return {
-        total: active.total,
-        perPerson: active.total / state.familySize
-      };
-    }
-
-    function calculateMemberStatus(member, asOfYm, extraAmount = 0) {
-      const startIdx = monthToIndex(member.startMonth);
-      const asOfIdx = monthToIndex(asOfYm);
-      const totalPaid = member.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) + Number(extraAmount || 0);
-
-      let accrued = 0;
-      if (asOfIdx >= startIdx) {
-        for (let idx = startIdx; idx <= asOfIdx; idx++) {
-          accrued += getTariffForMonth(indexToMonth(idx)).perPerson;
-        }
-      }
-
-      const balance = Math.round((totalPaid - accrued) * 100) / 100;
-
-      let remainingFunds = totalPaid;
-      let cursorIdx = startIdx;
-      let lastFullPaidIdx = null;
-      let partialIntoNextAmount = 0;
-      let nextMonthCost = getTariffForMonth(indexToMonth(cursorIdx)).perPerson;
-
-      let safety = 0;
-      while (remainingFunds > 0 && safety < 240) {
-        const ym = indexToMonth(cursorIdx);
-        const cost = getTariffForMonth(ym).perPerson;
-        if (remainingFunds + 0.001 >= cost) {
-          remainingFunds = Math.round((remainingFunds - cost) * 100) / 100;
-          lastFullPaidIdx = cursorIdx;
-          cursorIdx++;
-        } else {
-          partialIntoNextAmount = remainingFunds;
-          nextMonthCost = cost;
-          remainingFunds = 0;
-        }
-        safety++;
-      }
-
-      if (partialIntoNextAmount === 0) {
-        nextMonthCost = getTariffForMonth(indexToMonth(cursorIdx)).perPerson;
-      }
-
-      const paidThroughYm = lastFullPaidIdx !== null ? indexToMonth(lastFullPaidIdx) : null;
-      const nextTargetYm = indexToMonth(cursorIdx);
-      const missingForNextMonth = Math.round((nextMonthCost - partialIntoNextAmount) * 100) / 100;
-
-      return {
-        totalPaid,
-        accrued,
-        balance,
-        paidThroughYm,
-        nextTargetYm,
-        partialIntoNextAmount,
-        nextMonthCost,
-        missingForNextMonth
-      };
-    }
-
-    function renderApp() {
-      const asOfYm = state.asOfMonth;
-      document.getElementById('asOfMonthLabel').textContent = formatMonthLabel(asOfYm);
-
-      const tariff = getTariffForMonth(asOfYm);
-      document.getElementById('currentRateText').textContent = formatMoney(tariff.total) + '/міс';
-      document.getElementById('perPersonRateText').textContent = formatMoney(tariff.perPerson) + '/міс';
-
-      let totalDebt = 0;
-      let totalAdvance = 0;
-
-      const listEl = document.getElementById('membersList');
-      listEl.innerHTML = '';
-
-      state.members.forEach((member) => {
-        const st = calculateMemberStatus(member, asOfYm);
-        if (st.balance < -0.01) {
-          totalDebt += Math.abs(st.balance);
-        } else if (st.balance > 0.01) {
-          totalAdvance += st.balance;
-        }
-
-        const isDebt = st.balance < -0.01;
-        const isAdvance = st.balance > 0.01;
-
-        let badgeHtml = '';
-        let statusLine = '';
-        let subLine = '';
-
-        if (isDebt) {
-          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/20">Борг ${formatMoney(Math.abs(st.balance))}</span>`;
-          statusLine = `До сплати: <span class="text-rose-500 dark:text-rose-400 font-extrabold">${formatMoney(Math.abs(st.balance))}</span>`;
-          subLine = st.paidThroughYm
-            ? `Оплачено по ${formatMonthLabel(st.paidThroughYm)} включно (з ${formatMonthLabel(member.startMonth, true)})`
-            : `Не оплачено з ${formatMonthLabel(member.startMonth, true)} • Внесено: ${formatMoney(st.totalPaid)}`;
-        } else if (isAdvance) {
-          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Аванс +${formatMoney(st.balance)}</span>`;
-          statusLine = st.paidThroughYm
-            ? `Оплачено по <span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${formatMonthLabel(st.paidThroughYm)}</span> включно`
-            : `Аванс +${formatMoney(st.balance)}`;
-          subLine = st.partialIntoNextAmount > 0
-            ? `+ ${formatMoney(st.partialIntoNextAmount)} на ${formatMonthLabel(st.nextTargetYm)} (ще ${formatMoney(st.missingForNextMonth)} до повного місяця)`
-            : `Залишок авансу після ${formatMonthLabel(asOfYm, true)}: +${formatMoney(st.balance)}`;
-        } else {
-          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-500/15 text-slate-600 dark:text-slate-300">Закрито рівно</span>`;
-          statusLine = `Оплачено по <span class="font-extrabold">${formatMonthLabel(asOfYm)}</span> включно`;
-          subLine = `Боргу та авансу немає • Внесено: ${formatMoney(st.totalPaid)}`;
-        }
-
-        const card = document.createElement('div');
-        card.className = 'rounded-3xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] p-4 shadow-sm transition active:scale-[0.99]';
-        card.innerHTML = `
-          <div class="flex items-center justify-between gap-3">
-            <div onclick="openMemberDetail('${member.id}')" class="flex items-center gap-3 flex-1 cursor-pointer min-w-0">
-              <div class="w-11 h-11 rounded-2xl bg-gradient-to-br ${member.color} flex items-center justify-center text-white font-extrabold text-base shadow-md shrink-0">
-                ${member.name.charAt(0)}
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <h3 class="text-base font-extrabold truncate">${member.name}</h3>
-                </div>
-                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${member.role} • з ${formatMonthLabel(member.startMonth, true)}</p>
-              </div>
-            </div>
-            <div class="shrink-0">
-              ${badgeHtml}
-            </div>
-          </div>
-
-          <div onclick="openMemberDetail('${member.id}')" class="mt-3 pt-3 border-t border-slate-100 dark:border-[#222631] cursor-pointer space-y-1">
-            <div class="text-sm font-semibold text-slate-800 dark:text-slate-200">${statusLine}</div>
-            <div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${subLine}</div>
-          </div>
-
-          <div class="mt-3 flex items-center justify-between gap-2">
-            <div class="text-[11px] font-medium text-slate-400">
-              Всього внесено: <strong class="text-slate-700 dark:text-slate-200">${formatMoney(st.totalPaid)}</strong>
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button onclick="openMemberDetail('${member.id}')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#2a2f3d] transition">
-                Історія
-              </button>
-              <button onclick="openAddPaymentModal('${member.id}')" class="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-extrabold hover:bg-rose-500/20 transition">
-                + Внесок
-              </button>
-            </div>
-          </div>
-        `;
-        listEl.appendChild(card);
-      });
-
-      document.getElementById('totalDebtText').textContent = formatMoney(totalDebt);
-      document.getElementById('totalAdvanceText').textContent = totalAdvance > 0 ? `+${formatMoney(totalAdvance)}` : '0 грн';
-    }
-
-    function shiftAsOfMonth(delta) {
-      const nextIdx = monthToIndex(state.asOfMonth) + delta;
-      state.asOfMonth = indexToMonth(nextIdx);
-      saveState();
-      renderApp();
-    }
-
-    function openAddPaymentModal(preselectMemberId = null) {
-      if (preselectMemberId) {
-        selectedPaymentMemberId = preselectMemberId;
-      }
-      currentReceiptDataUrl = null;
-      document.getElementById('paymentAmount').value = '';
-      document.getElementById('paymentNote').value = '';
-      document.getElementById('paymentMonth').value = state.asOfMonth;
-      document.getElementById('paymentReceiptInput').value = '';
-      document.getElementById('receiptPlaceholder').classList.remove('hidden');
-      document.getElementById('receiptPreviewWrapper').classList.add('hidden');
-      document.getElementById('receiptErrorMsg').classList.add('hidden');
-      document.getElementById('receiptDropZone').classList.remove('border-rose-500');
-      renderMemberSelectorGrid();
-      updateLiveForecast();
-      document.getElementById('paymentModal').classList.remove('hidden');
-      setTimeout(() => {
-        document.getElementById('paymentAmount').focus();
-      }, 150);
-    }
-
-    function closeAddPaymentModal() {
-      document.getElementById('paymentModal').classList.add('hidden');
-    }
-
-    function renderMemberSelectorGrid() {
-      const grid = document.getElementById('memberSelectorGrid');
-      grid.innerHTML = '';
-      state.members.forEach((m) => {
-        const isSelected = m.id === selectedPaymentMemberId;
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.onclick = () => {
-          selectedPaymentMemberId = m.id;
-          renderMemberSelectorGrid();
-          updateLiveForecast();
-        };
-        btn.className = isSelected
-          ? 'py-2.5 px-2 rounded-2xl border-2 border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-extrabold text-xs text-center transition'
-          : 'py-2.5 px-2 rounded-2xl border border-slate-200 dark:border-[#262A36] bg-slate-50 dark:bg-[#0B0C0F] text-slate-700 dark:text-slate-300 font-semibold text-xs text-center transition';
-        btn.textContent = m.name;
-        grid.appendChild(btn);
-      });
-    }
-
-    function setQuickAmount(amount) {
-      const input = document.getElementById('paymentAmount');
-      input.value = amount;
-      updateLiveForecast();
-    }
-
-    function updateLiveForecast() {
-      const member = state.members.find((m) => m.id === selectedPaymentMemberId) || state.members[0];
-      const amountVal = parseFloat(document.getElementById('paymentAmount').value);
-      const mainEl = document.getElementById('liveForecastMain');
-      const subEl = document.getElementById('liveForecastSub');
-      const boxEl = document.getElementById('liveForecastBox');
-
-      if (!amountVal || amountVal <= 0) {
-        const cur = calculateMemberStatus(member, state.asOfMonth, 0);
-        boxEl.className = 'rounded-2xl p-4 bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-1.5';
-        if (cur.balance < -0.01) {
-          mainEl.innerHTML = `${member.name}: зараз борг <span class="text-rose-500">${formatMoney(Math.abs(cur.balance))}</span>`;
-          subEl.textContent = `Введіть суму поповнення, щоб побачити, по який місяць закриється оплата.`;
-        } else if (cur.balance > 0.01) {
-          mainEl.innerHTML = `${member.name}: зараз аванс <span class="text-emerald-500">+${formatMoney(cur.balance)}</span>`;
-          subEl.textContent = cur.paidThroughYm
-            ? `Зараз оплачено по ${formatMonthLabel(cur.paidThroughYm)} включно.`
-            : `Введіть суму, щоб продовжити підписку.`;
-        } else {
-          mainEl.textContent = `${member.name}: по ${formatMonthLabel(state.asOfMonth)} усе закрито`;
-          subEl.textContent = `Введіть суму авансу на майбутні місяці.`;
-        }
-        return;
-      }
-
-      const next = calculateMemberStatus(member, state.asOfMonth, amountVal);
-
-      if (next.balance < -0.01) {
-        boxEl.className = 'rounded-2xl p-4 bg-rose-500/10 border border-rose-500/30 space-y-1.5';
-        mainEl.innerHTML = `Залишиться борг: <span class="text-rose-500">${formatMoney(Math.abs(next.balance))}</span>`;
-        subEl.textContent = next.paidThroughYm
-          ? `Після внеску ${formatMoney(amountVal)} буде оплачено по ${formatMonthLabel(next.paidThroughYm)} включно.`
-          : `Внесеної суми (${formatMoney(next.totalPaid)}) ще не вистачає на перший місяць (${formatMonthLabel(member.startMonth)}).`;
-      } else if (next.balance > 0.01) {
-        boxEl.className = 'rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-1.5';
-        mainEl.innerHTML = next.paidThroughYm
-          ? `Оплачено по <span class="text-emerald-500">${formatMonthLabel(next.paidThroughYm)}</span> включно`
-          : `Аванс: <span class="text-emerald-500">+${formatMoney(next.balance)}</span>`;
-
-        const extraText = next.partialIntoNextAmount > 0
-          ? `Також залишається ${formatMoney(next.partialIntoNextAmount)} на ${formatMonthLabel(next.nextTargetYm)} (не вистачає ${formatMoney(next.missingForNextMonth)}).`
-          : `Залишок авансу після ${formatMonthLabel(state.asOfMonth, true)}: +${formatMoney(next.balance)}.`;
-        subEl.textContent = extraText;
-      } else {
-        boxEl.className = 'rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-1.5';
-        mainEl.innerHTML = `Ідеально! Закрито по <span class="text-emerald-500">${formatMonthLabel(state.asOfMonth)}</span> включно`;
-        subEl.textContent = `Борг погашено повністю, залишок авансу 0 грн.`;
-      }
-    }
-
-    function handleSavePayment(e) {
-      e.preventDefault();
-      const amount = parseFloat(document.getElementById('paymentAmount').value);
-      const dateMonth = document.getElementById('paymentMonth').value || state.asOfMonth;
-      const note = document.getElementById('paymentNote').value.trim();
-
-      if (!amount || amount <= 0) return;
-
-      // Обов'язкова перевірка наявності скріншоту або чеку
-      if (!currentReceiptDataUrl) {
-        document.getElementById('receiptErrorMsg').classList.remove('hidden');
-        document.getElementById('receiptDropZone').classList.add('border-rose-500');
-        showToast('Прикріпіть скріншот або чек оплати!');
-        return;
-      }
-
-      const member = state.members.find((m) => m.id === selectedPaymentMemberId);
-      if (!member) return;
-
-      member.payments.push({
-        id: 'pay_' + Date.now(),
-        dateMonth,
-        amount,
-        note: note || `Оплата (${formatMonthLabel(dateMonth, true)})`,
-        receipt: currentReceiptDataUrl
-      });
-
-      saveState();
-      closeAddPaymentModal();
-      renderApp();
-      showToast(`Зараховано ${formatMoney(amount)} для ${member.name}`);
-    }
-
-    function openMemberDetail(memberId) {
-      const member = state.members.find((m) => m.id === memberId);
-      if (!member) return;
-
-      const st = calculateMemberStatus(member, state.asOfMonth);
-      const container = document.getElementById('memberDetailContent');
-
-      const paymentsHtml = member.payments.length === 0
-        ? `<div class="text-center py-6 text-xs text-slate-400 bg-slate-50 dark:bg-[#0B0C0F] rounded-2xl">Поки що немає жодного платежу</div>`
-        : member.payments.map((p) => `
-            <div class="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200/70 dark:border-[#262A36]">
-              <div class="min-w-0">
-                <div class="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">+${formatMoney(p.amount)}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${p.note} • ${formatMonthLabel(p.dateMonth)}</div>
-              </div>
-              <div class="flex items-center gap-1.5 shrink-0">
-                ${p.receipt ? `
-                  <button onclick="openReceiptViewer('${p.receipt}', '${member.name} • +${formatMoney(p.amount)}')" class="px-2.5 py-1.5 rounded-xl bg-sky-500/15 text-sky-500 text-xs font-bold hover:bg-sky-500/25 transition">
-                    Чек
-                  </button>
-                ` : ''}
-                <button onclick="confirmDeletePayment('${member.id}', '${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition" title="Видалити платіж">
-                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-          `).join('');
-
-      container.innerHTML = `
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${member.color} flex items-center justify-center text-white font-extrabold text-lg">
-              ${member.name.charAt(0)}
-            </div>
-            <div>
-              <h3 class="text-lg font-extrabold">${member.name}</h3>
-              <p class="text-xs text-slate-500 dark:text-slate-400">У сім'ї з ${formatMonthLabel(member.startMonth, true)}</p>
-            </div>
-          </div>
-          <button onclick="closeMemberDetailModal()" class="p-2 rounded-xl bg-slate-100 dark:bg-[#222631] text-slate-500">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-
-        <div class="grid grid-cols-3 gap-2 mb-4">
-          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
-            <div class="text-[11px] text-slate-400">Внесено</div>
-            <div class="text-sm font-extrabold mt-0.5">${formatMoney(st.totalPaid)}</div>
-          </div>
-          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
-            <div class="text-[11px] text-slate-400">Нараховано</div>
-            <div class="text-sm font-extrabold mt-0.5">${formatMoney(st.accrued)}</div>
-          </div>
-          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
-            <div class="text-[11px] text-slate-400">Баланс</div>
-            <div class="text-sm font-extrabold mt-0.5 ${st.balance < 0 ? 'text-rose-500' : 'text-emerald-500'}">
-              ${st.balance > 0 ? '+' : ''}${formatMoney(st.balance)}
-            </div>
-          </div>
-        </div>
-
-        <div class="mb-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] text-xs space-y-1">
-          <div class="font-bold text-slate-700 dark:text-slate-200">
-            ${st.paidThroughYm ? `Повністю оплачено по: ${formatMonthLabel(st.paidThroughYm)} включно` : 'Жоден місяць ще не закритий повністю'}
-          </div>
-          <div class="text-slate-500 dark:text-slate-400">
-            ${st.partialIntoNextAmount > 0
-              ? `На ${formatMonthLabel(st.nextTargetYm)} є ${formatMoney(st.partialIntoNextAmount)} із ${formatMoney(st.nextMonthCost)} (залишок доплати: ${formatMoney(st.missingForNextMonth)}).`
-              : `Наступний неоплачений місяць: ${formatMonthLabel(st.nextTargetYm)} (${formatMoney(st.nextMonthCost)}).`}
-          </div>
-        </div>
-
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Історія внесків (${member.payments.length})</span>
-          <button onclick="closeMemberDetailModal(); openAddPaymentModal('${member.id}')" class="text-xs font-extrabold text-rose-500">+ Додати платіж</button>
-        </div>
-
-        <div class="space-y-2 mb-2">${paymentsHtml}</div>
-      `;
-
-      document.getElementById('memberDetailModal').classList.remove('hidden');
-    }
-
-    function closeMemberDetailModal() {
-      document.getElementById('memberDetailModal').classList.add('hidden');
-    }
-
-    function confirmDeletePayment(memberId, paymentId) {
-      openConfirmDialog(
-        'Видалити платіж?',
-        'Сума буде віднята, а баланс та місяць оплати автоматично перерахуються.',
-        () => {
-          const member = state.members.find((m) => m.id === memberId);
-          if (member) {
-            member.payments = member.payments.filter((p) => p.id !== paymentId);
-            saveState();
-            renderApp();
-            openMemberDetail(memberId);
-            showToast('Платіж видалено');
-          }
-        }
-      );
-    }
-
-    function openTariffModal() {
-      renderTariffHistoryList();
-      document.getElementById('tariffModal').classList.remove('hidden');
-    }
-
-    function closeTariffModal() {
-      document.getElementById('tariffModal').classList.add('hidden');
-    }
-
-    function renderTariffHistoryList() {
-      const list = document.getElementById('tariffHistoryList');
-      const sorted = [...state.tariffs].sort((a, b) => monthToIndex(a.from) - monthToIndex(b.from));
-      list.innerHTML = sorted.map((t, idx) => `
-        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36]">
-          <div>
-            <div class="text-sm font-extrabold">З ${formatMonthLabel(t.from, true)}</div>
-            <div class="text-xs text-slate-500">Загальна: <strong>${formatMoney(t.total)}/міс</strong> → по <strong>${formatMoney(t.total / state.familySize)}/міс</strong> з людини</div>
-          </div>
-          ${idx > 0 ? `
-            <button onclick="deleteTariff('${t.from}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          ` : '<span class="text-[11px] font-bold text-slate-400 px-2">Базовий</span>'}
-        </div>
-      `).join('');
-    }
-
-    function handleAddTariff(e) {
-      e.preventDefault();
-      const from = document.getElementById('newTariffMonth').value;
-      const total = parseFloat(document.getElementById('newTariffTotal').value);
-      if (!from || !total || total <= 0) return;
-
-      const existing = state.tariffs.find((t) => t.from === from);
-      if (existing) {
-        existing.total = total;
-      } else {
-        state.tariffs.push({ from, total });
-      }
-      saveState();
-      renderTariffHistoryList();
-      renderApp();
-      showToast('Тариф оновлено');
-    }
-
-    function deleteTariff(fromYm) {
-      state.tariffs = state.tariffs.filter((t) => t.from !== fromYm);
-      saveState();
-      renderTariffHistoryList();
-      renderApp();
-      showToast('Тариф видалено');
-    }
-
-    function copyChatReport() {
-      const asOfLabel = formatMonthLabel(state.asOfMonth);
-      const tariff = getTariffForMonth(state.asOfMonth);
-      const lines = [
-        `📺 YouTube Сім'я — стан оплат на ${asOfLabel}:`,
-        `Тариф: ${formatMoney(tariff.total)}/міс (по ${formatMoney(tariff.perPerson)} з людини)`,
-        ``
-      ];
-
-      state.members.forEach((m) => {
-        const st = calculateMemberStatus(m, state.asOfMonth);
-        if (st.balance < -0.01) {
-          lines.push(`• ${m.name}: до сплати ${formatMoney(Math.abs(st.balance))}`);
-        } else if (st.balance > 0.01) {
-          const through = st.paidThroughYm ? `по ${formatMonthLabel(st.paidThroughYm)} включно` : '';
-          const extra = st.partialIntoNextAmount > 0 ? ` + ${formatMoney(st.partialIntoNextAmount)} на ${formatMonthLabel(st.nextTargetYm)}` : '';
-          lines.push(`• ${m.name}: аванс +${formatMoney(st.balance)} (оплачено ${through}${extra})`);
-        } else {
-          lines.push(`• ${m.name}: оплачено по ${formatMonthLabel(state.asOfMonth)} включно`);
-        }
-      });
-
-      const text = lines.join('\n');
-      const textarea = document.createElement('textarea');
-      textarea.value = text;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        showToast('Звіт скопійовано для чату!');
-      } catch (err) {
-        showToast('Не вдалося скопіювати');
-      }
-      document.body.removeChild(textarea);
-    }
-
-    let pendingConfirmCallback = null;
-    function openConfirmDialog(title, message, onConfirm) {
-      document.getElementById('confirmTitle').textContent = title;
-      document.getElementById('confirmMessage').textContent = message;
-      pendingConfirmCallback = onConfirm;
-      document.getElementById('confirmDialog').classList.remove('hidden');
-    }
-
-    function closeConfirmDialog() {
-      document.getElementById('confirmDialog').classList.add('hidden');
-      pendingConfirmCallback = null;
-    }
-
-    document.getElementById('confirmActionBtn').addEventListener('click', () => {
-      if (pendingConfirmCallback) pendingConfirmCallback();
-      closeConfirmDialog();
-    });
-
-    function openResetConfirm() {
-      openConfirmDialog(
-        'Скинути до початкових даних?',
-        'Усі додані вручну платежі будуть видалені, а баланс повернеться до стану на листопад 2026 (Юра 300, Віталік 310, Влад 0).',
-        () => {
-          state = JSON.parse(JSON.stringify(INITIAL_STATE));
-          saveState();
-          renderApp();
-          showToast('Дані відновлено до початкових');
-        }
-      );
-    }
-
-    function toggleTheme() {
-      const html = document.documentElement;
-      const isDark = html.classList.toggle('dark');
-      localStorage.setItem('yt_family_theme', isDark ? 'dark' : 'light');
-    }
-
-    let toastTimer = null;
-    function showToast(msg) {
-      const toast = document.getElementById('toast');
-      document.getElementById('toastText').textContent = msg;
-      toast.classList.remove('opacity-0');
-      toast.classList.add('opacity-100');
-      clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        toast.classList.remove('opacity-100');
-        toast.classList.add('opacity-0');
-      }, 2400);
-    }
-
+// ... existing code ... -->
     function openExportHelpModal() {
       document.getElementById('passwordEnabledToggle').checked = APP_SECURITY.enabled;
-      document.getElementById('customPasswordInput').value = APP_SECURITY.password;
+      document.getElementById('customPasswordInput').value = '';
+      document.getElementById('customPasswordInput').placeholder = 'Введіть новий пароль для зміни';
       document.getElementById('exportHelpModal').classList.remove('hidden');
     }
 
@@ -1230,25 +522,28 @@
       showToast(APP_SECURITY.enabled ? 'Захист паролем увімкнено' : 'Захист паролем вимкнено');
     }
 
-    function saveCustomPassword() {
+    async function saveCustomPassword() {
       const val = document.getElementById('customPasswordInput').value.trim();
       if (!val) {
-        showToast('Пароль не може бути порожнім');
+        showToast('Введіть новий пароль');
         return;
       }
-      APP_SECURITY.password = val;
+      const hashed = await hashPasswordSHA256(val);
+      APP_SECURITY.passwordHash = hashed;
       APP_SECURITY.enabled = true;
       document.getElementById('passwordEnabledToggle').checked = true;
+      document.getElementById('customPasswordInput').value = '';
       localStorage.setItem('yt_family_security', JSON.stringify(APP_SECURITY));
-      sessionStorage.setItem(AUTH_SESSION_KEY, val);
-      showToast('Пароль збережено! Завантажте оновлений файл');
+      sessionStorage.setItem(AUTH_SESSION_KEY, hashed);
+      showToast('Новий пароль зашифровано та збережено!');
     }
 
-    function handleUnlock(e) {
+    async function handleUnlock(e) {
       e.preventDefault();
       const entered = document.getElementById('lockPasswordInput').value.trim();
-      if (entered === APP_SECURITY.password) {
-        sessionStorage.setItem(AUTH_SESSION_KEY, entered);
+      const enteredHash = await hashPasswordSHA256(entered);
+      if (enteredHash === APP_SECURITY.passwordHash) {
+        sessionStorage.setItem(AUTH_SESSION_KEY, enteredHash);
         document.getElementById('lockScreen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
         document.getElementById('lockErrorMsg').classList.add('hidden');
@@ -1258,71 +553,7 @@
     }
 
     function copyShareLinkWithData() {
-      try {
-        const jsonStr = JSON.stringify(state);
-        const encoded = btoa(encodeURIComponent(jsonStr));
-        const baseUrl = window.location.href.split('#')[0];
-        const shareUrl = `${baseUrl}#data=${encoded}`;
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(shareUrl);
-        } else {
-          const ta = document.createElement('textarea');
-          ta.value = shareUrl;
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand('copy');
-          document.body.removeChild(ta);
-        }
-        showToast('Посилання з актуальними балансами скопійовано!');
-      } catch (err) {
-        showToast('Не вдалося сформувати посилання');
-      }
-    }
-
-    function loadSharedStateFromHash() {
-      try {
-        const hash = window.location.hash;
-        if (hash && hash.startsWith('#data=')) {
-          const encoded = hash.slice(6);
-          const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
-          if (decoded && Array.isArray(decoded.members) && Array.isArray(decoded.tariffs)) {
-            state = decoded;
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          }
-        }
-      } catch (e) {
-        console.warn('Помилка читання даних із посилання', e);
-      }
-    }
-
-    function downloadStandaloneHtml() {
-      try {
-        let htmlSource = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
-        const serializedState = JSON.stringify(state, null, 6);
-        const serializedSecurity = JSON.stringify(APP_SECURITY, null, 6);
-        htmlSource = htmlSource.replace(
-          /const INITIAL_STATE = \{[\s\S]*?\n    \};/,
-          `const INITIAL_STATE = ${serializedState};`
-        );
-        htmlSource = htmlSource.replace(
-          /const APP_SECURITY = \{[\s\S]*?\n    \};/,
-          `const APP_SECURITY = ${serializedSecurity};`
-        );
-        const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'index.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showToast('Файл index.html завантажується!');
-      } catch (err) {
-        showToast('Помилка завантаження файлу');
-      }
-    }
-
+// ... existing code ... -->
     // Ініціалізація при завантаженні
     (function init() {
       const savedTheme = localStorage.getItem('yt_family_theme');
@@ -1331,15 +562,15 @@
       }
       try {
         const savedSec = JSON.parse(localStorage.getItem('yt_family_security'));
-        if (savedSec && typeof savedSec.password === 'string') {
+        if (savedSec && typeof savedSec.passwordHash === 'string') {
           APP_SECURITY.enabled = savedSec.enabled;
-          APP_SECURITY.password = savedSec.password;
+          APP_SECURITY.passwordHash = savedSec.passwordHash;
         }
       } catch (e) {}
 
       loadSharedStateFromHash();
 
-      const unlocked = !APP_SECURITY.enabled || sessionStorage.getItem(AUTH_SESSION_KEY) === APP_SECURITY.password;
+      const unlocked = !APP_SECURITY.enabled || sessionStorage.getItem(AUTH_SESSION_KEY) === APP_SECURITY.passwordHash;
       if (unlocked) {
         document.getElementById('lockScreen').classList.add('hidden');
         document.getElementById('app').classList.remove('hidden');
