@@ -198,6 +198,20 @@
             <div id="totalAdvanceText" class="text-lg font-extrabold text-emerald-400 mt-0.5">+250 грн</div>
           </div>
         </div>
+
+        <!-- Картка для поповнення -->
+        <div class="mt-3 pt-3 border-t border-white/10 flex items-center justify-between gap-2 bg-white/5 rounded-2xl px-3.5 py-2.5">
+          <div class="min-w-0">
+            <div class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Картка для оплати</div>
+            <div id="paymentCardNumber" class="text-sm font-extrabold tracking-wider text-white font-mono select-all truncate">5354 3211 8850 7280</div>
+          </div>
+          <button type="button" onclick="copyCardNumber()" class="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 active:scale-95 text-xs font-bold text-white shadow-md shadow-rose-600/20 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"/>
+            </svg>
+            <span>Копіювати</span>
+          </button>
+        </div>
       </section>
 
       <!-- Заголовок списку учасників -->
@@ -276,6 +290,28 @@
             <input type="text" id="paymentNote" placeholder="Напр. на карту"
               class="w-full text-sm font-medium px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] focus:border-rose-500 focus:outline-none" />
           </div>
+        </div>
+
+        <!-- Обов'язкове завантаження скріншоту або чеку -->
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+            Скріншот або чек оплати <span class="text-rose-500">*</span>
+          </label>
+          <label for="paymentReceiptInput" id="receiptDropZone" class="flex flex-col items-center justify-center w-full p-4 rounded-2xl border-2 border-dashed border-slate-300 dark:border-[#2E3444] bg-slate-50 dark:bg-[#0B0C0F] hover:border-rose-500 cursor-pointer transition text-center">
+            <div id="receiptPlaceholder" class="space-y-1">
+              <svg class="w-7 h-7 mx-auto text-slate-400" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+              </svg>
+              <div class="text-xs font-bold text-slate-700 dark:text-slate-200">Натисніть, щоб прикріпити скріншот / чек</div>
+              <div class="text-[11px] text-slate-400">Без скріншоту квитанції зберегти платіж неможливо</div>
+            </div>
+            <div id="receiptPreviewWrapper" class="hidden w-full space-y-2">
+              <img id="receiptPreviewImg" src="" alt="Чек оплати" class="max-h-40 mx-auto rounded-xl object-contain border border-slate-200 dark:border-[#262A36]" />
+              <div class="text-xs font-bold text-emerald-500">Скріншот прикріплено (натисніть, щоб замінити)</div>
+            </div>
+          </label>
+          <input type="file" id="paymentReceiptInput" accept="image/*" class="hidden" onchange="handleReceiptFileChange(event)" />
+          <p id="receiptErrorMsg" class="text-xs font-semibold text-rose-500 mt-1.5 hidden">Обов'язково прикріпіть скріншот або чек оплати!</p>
         </div>
 
         <div id="liveForecastBox" class="rounded-2xl p-4 bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-1.5">
@@ -366,6 +402,22 @@
   <!-- Спливаюче повідомлення (Toast) -->
   <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-200">
     <div id="toastText" class="px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xl whitespace-nowrap"></div>
+  </div>
+
+  <!-- Модальне вікно перегляду скріншоту чеку -->
+  <div id="receiptViewerModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4">
+    <div onclick="closeReceiptViewer()" class="absolute inset-0 bg-black/85 backdrop-blur-sm"></div>
+    <div class="relative max-w-md w-full bg-[#16181F] border border-[#262A36] rounded-3xl p-4 space-y-3 shadow-2xl">
+      <div class="flex items-center justify-between">
+        <span id="receiptViewerTitle" class="text-xs font-bold text-slate-300">Скріншот оплати</span>
+        <button onclick="closeReceiptViewer()" class="p-1.5 rounded-xl bg-white/10 text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <img id="receiptViewerImg" src="" alt="Чек" class="w-full max-h-[70vh] object-contain rounded-2xl bg-black" />
+    </div>
   </div>
 
   <!-- ======================================================================= -->
@@ -492,6 +544,72 @@
 
     let state = loadState();
     let selectedPaymentMemberId = 'vlad';
+    let currentReceiptDataUrl = null;
+    const TARGET_CARD_NUMBER = '5354321188507280';
+
+    function copyCardNumber() {
+      const ta = document.createElement('textarea');
+      ta.value = TARGET_CARD_NUMBER;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('Номер картки скопійовано!');
+      } catch (e) {
+        showToast('Картка: ' + TARGET_CARD_NUMBER);
+      }
+      document.body.removeChild(ta);
+    }
+
+    function handleReceiptFileChange(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          // Стискаємо скріншот для економії місця в localStorage
+          const maxDim = 900;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          currentReceiptDataUrl = canvas.toDataURL('image/jpeg', 0.72);
+
+          document.getElementById('receiptPreviewImg').src = currentReceiptDataUrl;
+          document.getElementById('receiptPlaceholder').classList.add('hidden');
+          document.getElementById('receiptPreviewWrapper').classList.remove('hidden');
+          document.getElementById('receiptErrorMsg').classList.add('hidden');
+          document.getElementById('receiptDropZone').classList.remove('border-rose-500');
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openReceiptViewer(dataUrl, title) {
+      document.getElementById('receiptViewerImg').src = dataUrl;
+      document.getElementById('receiptViewerTitle').textContent = title || 'Скріншот оплати';
+      document.getElementById('receiptViewerModal').classList.remove('hidden');
+    }
+
+    function closeReceiptViewer() {
+      document.getElementById('receiptViewerModal').classList.add('hidden');
+    }
 
     function loadState() {
       try {
@@ -715,9 +833,15 @@
       if (preselectMemberId) {
         selectedPaymentMemberId = preselectMemberId;
       }
+      currentReceiptDataUrl = null;
       document.getElementById('paymentAmount').value = '';
       document.getElementById('paymentNote').value = '';
       document.getElementById('paymentMonth').value = state.asOfMonth;
+      document.getElementById('paymentReceiptInput').value = '';
+      document.getElementById('receiptPlaceholder').classList.remove('hidden');
+      document.getElementById('receiptPreviewWrapper').classList.add('hidden');
+      document.getElementById('receiptErrorMsg').classList.add('hidden');
+      document.getElementById('receiptDropZone').classList.remove('border-rose-500');
       renderMemberSelectorGrid();
       updateLiveForecast();
       document.getElementById('paymentModal').classList.remove('hidden');
@@ -814,6 +938,14 @@
 
       if (!amount || amount <= 0) return;
 
+      // Обов'язкова перевірка наявності скріншоту або чеку
+      if (!currentReceiptDataUrl) {
+        document.getElementById('receiptErrorMsg').classList.remove('hidden');
+        document.getElementById('receiptDropZone').classList.add('border-rose-500');
+        showToast('Прикріпіть скріншот або чек оплати!');
+        return;
+      }
+
       const member = state.members.find((m) => m.id === selectedPaymentMemberId);
       if (!member) return;
 
@@ -821,7 +953,8 @@
         id: 'pay_' + Date.now(),
         dateMonth,
         amount,
-        note: note || `Оплата (${formatMonthLabel(dateMonth, true)})`
+        note: note || `Оплата (${formatMonthLabel(dateMonth, true)})`,
+        receipt: currentReceiptDataUrl
       });
 
       saveState();
@@ -840,16 +973,23 @@
       const paymentsHtml = member.payments.length === 0
         ? `<div class="text-center py-6 text-xs text-slate-400 bg-slate-50 dark:bg-[#0B0C0F] rounded-2xl">Поки що немає жодного платежу</div>`
         : member.payments.map((p) => `
-            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200/70 dark:border-[#262A36]">
-              <div>
+            <div class="flex items-center justify-between gap-2 p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200/70 dark:border-[#262A36]">
+              <div class="min-w-0">
                 <div class="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">+${formatMoney(p.amount)}</div>
-                <div class="text-xs text-slate-500 dark:text-slate-400">${p.note} • ${formatMonthLabel(p.dateMonth)}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400 truncate">${p.note} • ${formatMonthLabel(p.dateMonth)}</div>
               </div>
-              <button onclick="confirmDeletePayment('${member.id}', '${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition" title="Видалити платіж">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-                </svg>
-              </button>
+              <div class="flex items-center gap-1.5 shrink-0">
+                ${p.receipt ? `
+                  <button onclick="openReceiptViewer('${p.receipt}', '${member.name} • +${formatMoney(p.amount)}')" class="px-2.5 py-1.5 rounded-xl bg-sky-500/15 text-sky-500 text-xs font-bold hover:bg-sky-500/25 transition">
+                    Чек
+                  </button>
+                ` : ''}
+                <button onclick="confirmDeletePayment('${member.id}', '${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition" title="Видалити платіж">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                  </svg>
+                </button>
+              </div>
             </div>
           `).join('');
 
