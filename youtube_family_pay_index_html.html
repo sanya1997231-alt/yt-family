@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="uk" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f0f12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>YouTube Family • Облік підписки</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            yt: {
+              red: '#FF0033',
+              redDark: '#CC0029',
+              bg: '#0B0C0F',
+              card: '#16181F',
+              cardHover: '#1E212B',
+              border: '#262A36',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      overscroll-behavior-y: contain;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); opacity: 0.6; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .sheet-enter {
+      animation: slideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .backdrop-enter {
+      animation: fadeIn 0.2s ease-out forwards;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .safe-bottom {
+      padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+    }
+    .safe-top {
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 dark:bg-[#0B0C0F] dark:text-slate-100 min-h-screen antialiased selection:bg-rose-500 selection:text-white">
+
+  <!-- ЕКРАН ЗАХИСТУ ПАРОЛЕМ (PIN-КОДОМ) -->
+  <div id="lockScreen" class="fixed inset-0 z-[100] bg-slate-100 dark:bg-[#0B0C0F] flex items-center justify-center p-4">
+    <div class="w-full max-w-sm bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] rounded-3xl p-6 shadow-2xl text-center space-y-5">
+      <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF0033] to-[#B80024] flex items-center justify-center shadow-lg shadow-rose-600/25 mx-auto">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+        </svg>
+      </div>
+      <div>
+        <h2 class="text-xl font-extrabold tracking-tight">YouTube Сім'я</h2>
+        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Введіть пароль для доступу до обліку</p>
+      </div>
+      <form onsubmit="handleUnlock(event)" class="space-y-3">
+        <input type="password" id="lockPasswordInput" inputmode="numeric" autocomplete="current-password" required placeholder="Введіть пароль (стандарт: 2026)"
+          class="w-full text-center text-lg font-extrabold tracking-widest px-4 py-3.5 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border-2 border-slate-200 dark:border-[#262A36] focus:border-rose-500 focus:outline-none transition" />
+        <p id="lockErrorMsg" class="text-xs font-semibold text-rose-500 hidden">Невірний пароль. Спробуйте ще раз.</p>
+        <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#FF0033] to-[#D9002B] text-white font-bold text-sm shadow-lg shadow-rose-600/25 active:scale-[0.98] transition">
+          Увійти
+        </button>
+      </form>
+      <p class="text-[11px] text-slate-400">Пароль можна змінити в меню налаштувань після входу</p>
+    </div>
+  </div>
+
+  <!-- Головний контейнер -->
+  <div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col pb-28 hidden">
+
+    <!-- Верхня панель (Header) -->
+    <header class="sticky top-0 z-30 safe-top bg-slate-100/90 dark:bg-[#0B0C0F]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-[#262A36] px-4 py-3">
+      <div class="flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#FF0033] to-[#B80024] flex items-center justify-center shadow-lg shadow-rose-600/25 shrink-0">
+            <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-base font-extrabold tracking-tight leading-tight">YouTube Сім'я</h1>
+            <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">5 місць (3 на обліку)</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5">
+          <!-- Кнопка завантаження файлу / GitHub Pages -->
+          <button onclick="openExportHelpModal()" title="GitHub Pages, пароль та посилання" class="p-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] text-emerald-600 dark:text-emerald-400 active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+            </svg>
+          </button>
+          <!-- Кнопка швидкого поширення посилання з актуальними балансами -->
+          <button onclick="copyShareLinkWithData()" title="Поділитися актуальним посиланням" class="p-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] text-sky-600 dark:text-sky-400 active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
+            </svg>
+          </button>
+          <!-- Кнопка зміни тарифу -->
+          <button onclick="openTariffModal()" title="Тарифи" class="p-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] text-slate-700 dark:text-slate-300 active:scale-95 transition">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </button>
+          <!-- Перемикач теми -->
+          <button onclick="toggleTheme()" title="Змінити тему" class="p-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] text-slate-700 dark:text-slate-300 active:scale-95 transition">
+            <svg id="themeIconSun" class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/>
+            </svg>
+            <svg id="themeIconMoon" class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Перемикач розрахункового місяця -->
+      <div class="mt-3 flex items-center justify-between bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] rounded-2xl p-1.5 shadow-sm">
+        <button onclick="shiftAsOfMonth(-1)" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222631] active:scale-90 transition" aria-label="Попередній місяць">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+          </svg>
+        </button>
+        <div class="text-center flex-1">
+          <div class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Розрахунок станом на</div>
+          <div id="asOfMonthLabel" class="text-sm font-bold text-slate-900 dark:text-white">Листопад 2026</div>
+        </div>
+        <button onclick="shiftAsOfMonth(1)" class="w-10 h-10 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#222631] active:scale-90 transition" aria-label="Наступний місяць">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Основний контент -->
+    <main class="px-4 pt-4 space-y-4 flex-1">
+
+      <!-- Зведена картка по всій сім'ї -->
+      <section id="summaryCard" class="rounded-3xl bg-gradient-to-br from-[#1C1F2A] via-[#16181F] to-[#121318] border border-[#2A2F3D] p-5 text-white shadow-xl relative overflow-hidden">
+        <div class="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-rose-600/15 blur-2xl pointer-events-none"></div>
+        
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <span class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-white/10 text-slate-200">
+              <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              Тариф: <span id="currentRateText">300 грн/міс</span> (÷ 5 осіб)
+            </span>
+            <p class="text-xs text-slate-400 mt-1.5">Частка 1 учасника (1/5): <strong id="perPersonRateText" class="text-white">60 грн/міс</strong></p>
+          </div>
+          <button onclick="copyChatReport()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 active:scale-95 text-xs font-semibold text-white transition">
+            <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Звіт у чат
+          </button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2.5 mt-4 pt-4 border-t border-white/10">
+          <div class="bg-white/5 rounded-2xl p-3">
+            <div class="text-[11px] text-slate-400 font-medium">Загальний борг</div>
+            <div id="totalDebtText" class="text-lg font-extrabold text-rose-400 mt-0.5">150 грн</div>
+          </div>
+          <div class="bg-white/5 rounded-2xl p-3">
+            <div class="text-[11px] text-slate-400 font-medium">Аванси наперед</div>
+            <div id="totalAdvanceText" class="text-lg font-extrabold text-emerald-400 mt-0.5">+250 грн</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Заголовок списку учасників -->
+      <div class="flex items-center justify-between pt-1">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Учасники на обліку (3 з 5)</h2>
+        <button onclick="openResetConfirm()" class="text-xs font-medium text-slate-400 hover:text-rose-500 transition">Скинути дані</button>
+      </div>
+
+      <!-- Список карток учасників -->
+      <div id="membersList" class="space-y-3"></div>
+
+    </main>
+
+    <!-- Фіксована нижня кнопка швидкого додавання платежу -->
+    <div class="fixed bottom-0 inset-x-0 z-30 pointer-events-none safe-bottom px-4 pt-3 bg-gradient-to-t from-slate-100 via-slate-100/95 to-transparent dark:from-[#0B0C0F] dark:via-[#0B0C0F]/95 dark:to-transparent">
+      <div class="max-w-lg mx-auto pointer-events-auto">
+        <button onclick="openAddPaymentModal()" class="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-[#FF0033] to-[#D9002B] hover:from-[#ff1a47] hover:to-[#e6002e] text-white font-bold text-base shadow-xl shadow-rose-600/30 flex items-center justify-center gap-2.5 active:scale-[0.98] transition">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          <span>Записати платіж</span>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- МОДАЛЬНЕ ВІКНО 1: ДОДАВАННЯ ПЛАТЕЖУ + МИТТЄВИЙ ПРОГНОЗ                   -->
+  <!-- ======================================================================= -->
+  <div id="paymentModal" class="fixed inset-0 z-50 hidden">
+    <div onclick="closeAddPaymentModal()" class="absolute inset-0 bg-black/70 backdrop-blur-sm backdrop-enter"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-lg mx-auto bg-white dark:bg-[#16181F] rounded-t-3xl border-t border-slate-200 dark:border-[#262A36] p-5 safe-bottom sheet-enter max-h-[92vh] overflow-y-auto">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mb-4"></div>
+      
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-extrabold">Новий платіж</h3>
+        <button onclick="closeAddPaymentModal()" class="p-2 rounded-xl bg-slate-100 dark:bg-[#222631] text-slate-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="paymentForm" onsubmit="handleSavePayment(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">Хто закинув кошти?</label>
+          <div id="memberSelectorGrid" class="grid grid-cols-3 gap-2"></div>
+        </div>
+
+        <div>
+          <label for="paymentAmount" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Сума (грн)</label>
+          <div class="relative">
+            <input type="number" id="paymentAmount" inputmode="numeric" step="1" min="1" required placeholder="Введіть суму, напр. 150"
+              oninput="updateLiveForecast()"
+              class="w-full text-2xl font-extrabold px-4 py-3.5 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border-2 border-slate-200 dark:border-[#262A36] focus:border-rose-500 focus:outline-none transition" />
+            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-400">грн</span>
+          </div>
+          <div class="flex items-center gap-2 mt-2 overflow-x-auto no-scrollbar">
+            <button type="button" onclick="setQuickAmount(60)" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold hover:bg-rose-500/15 hover:text-rose-400 transition shrink-0">+60 грн (1 міс)</button>
+            <button type="button" onclick="setQuickAmount(120)" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold hover:bg-rose-500/15 hover:text-rose-400 transition shrink-0">+120 грн (2 міс)</button>
+            <button type="button" onclick="setQuickAmount(150)" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold hover:bg-rose-500/15 hover:text-rose-400 transition shrink-0">+150 грн</button>
+            <button type="button" onclick="setQuickAmount(180)" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold hover:bg-rose-500/15 hover:text-rose-400 transition shrink-0">+180 грн (3 міс)</button>
+            <button type="button" onclick="setQuickAmount(300)" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold hover:bg-rose-500/15 hover:text-rose-400 transition shrink-0">+300 грн (5 міс)</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="paymentMonth" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Місяць оплати</label>
+            <input type="month" id="paymentMonth" required onchange="updateLiveForecast()"
+              class="w-full text-sm font-semibold px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] focus:border-rose-500 focus:outline-none" />
+          </div>
+          <div>
+            <label for="paymentNote" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">Коментар (необов'язково)</label>
+            <input type="text" id="paymentNote" placeholder="Напр. на карту"
+              class="w-full text-sm font-medium px-3.5 py-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] focus:border-rose-500 focus:outline-none" />
+          </div>
+        </div>
+
+        <div id="liveForecastBox" class="rounded-2xl p-4 bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-1.5">
+          <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Результат після зарахування:</div>
+          <div id="liveForecastMain" class="text-base font-extrabold text-slate-900 dark:text-white">
+            Введіть суму, щоб побачити розрахунок
+          </div>
+          <div id="liveForecastSub" class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+            Тут з'явиться інформація, до якого місяця включно буде оплачено та який залишиться аванс або борг.
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-base shadow-lg shadow-emerald-600/25 active:scale-[0.98] transition">
+          Зберегти платіж
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- МОДАЛЬНЕ ВІКНО 2: ДЕТАЛІ УЧАСНИКА ТА ІСТОРІЯ ПЛАТЕЖІВ                   -->
+  <!-- ======================================================================= -->
+  <div id="memberDetailModal" class="fixed inset-0 z-50 hidden">
+    <div onclick="closeMemberDetailModal()" class="absolute inset-0 bg-black/70 backdrop-blur-sm backdrop-enter"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-lg mx-auto bg-white dark:bg-[#16181F] rounded-t-3xl border-t border-slate-200 dark:border-[#262A36] p-5 safe-bottom sheet-enter max-h-[90vh] overflow-y-auto">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mb-4"></div>
+      <div id="memberDetailContent"></div>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- МОДАЛЬНЕ ВІКНО 3: УПРАВЛІННЯ ТАРИФАМИ ПІДПИСКИ                          -->
+  <!-- ======================================================================= -->
+  <div id="tariffModal" class="fixed inset-0 z-50 hidden">
+    <div onclick="closeTariffModal()" class="absolute inset-0 bg-black/70 backdrop-blur-sm backdrop-enter"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-lg mx-auto bg-white dark:bg-[#16181F] rounded-t-3xl border-t border-slate-200 dark:border-[#262A36] p-5 safe-bottom sheet-enter max-h-[90vh] overflow-y-auto">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-extrabold">Тарифи YouTube Family</h3>
+        <button onclick="closeTariffModal()" class="p-2 rounded-xl bg-slate-100 dark:bg-[#222631] text-slate-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        Загальна вартість підписки автоматично ділиться порівну на <strong>5 учасників</strong>. Якщо YouTube змінить ціну в майбутньому, додайте новий тариф нижче.
+      </p>
+
+      <div id="tariffHistoryList" class="space-y-2 mb-5"></div>
+
+      <form onsubmit="handleAddTariff(event)" class="p-4 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-3">
+        <div class="text-xs font-bold uppercase tracking-wider text-slate-400">Додати зміну тарифу</div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Діє з місяця</label>
+            <input type="month" id="newTariffMonth" required value="2026-12"
+              class="w-full text-sm font-semibold px-3 py-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36]" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-500 mb-1">Загальна сума (грн)</label>
+            <input type="number" id="newTariffTotal" required min="5" step="5" placeholder="Напр. 350"
+              class="w-full text-sm font-semibold px-3 py-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36]" />
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-bold transition">
+          Зберегти тариф
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- МОДАЛЬНЕ ВІКНО 4: ПІДТВЕРДЖЕННЯ СКИДАННЯ / ВИДАЛЕННЯ                    -->
+  <!-- ======================================================================= -->
+  <div id="confirmDialog" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4">
+    <div onclick="closeConfirmDialog()" class="absolute inset-0 bg-black/75 backdrop-blur-sm"></div>
+    <div class="relative w-full max-w-sm bg-white dark:bg-[#16181F] rounded-3xl border border-slate-200 dark:border-[#262A36] p-5 shadow-2xl space-y-4">
+      <h4 id="confirmTitle" class="text-base font-extrabold">Підтвердження</h4>
+      <p id="confirmMessage" class="text-sm text-slate-500 dark:text-slate-400"></p>
+      <div class="grid grid-cols-2 gap-2.5 pt-1">
+        <button onclick="closeConfirmDialog()" class="py-3 rounded-xl bg-slate-100 dark:bg-[#222631] text-sm font-bold">Скасувати</button>
+        <button id="confirmActionBtn" class="py-3 rounded-xl bg-rose-600 text-white text-sm font-bold">Підтвердити</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Спливаюче повідомлення (Toast) -->
+  <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-200">
+    <div id="toastText" class="px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold shadow-xl whitespace-nowrap"></div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- МОДАЛЬНЕ ВІКНО 5: ЗБЕРЕЖЕННЯ ФАЙЛУ, ПАРОЛЬ ТА GITHUB PAGES              -->
+  <!-- ======================================================================= -->
+  <div id="exportHelpModal" class="fixed inset-0 z-50 hidden">
+    <div onclick="closeExportHelpModal()" class="absolute inset-0 bg-black/70 backdrop-blur-sm backdrop-enter"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-lg mx-auto bg-white dark:bg-[#16181F] rounded-t-3xl border-t border-slate-200 dark:border-[#262A36] p-5 safe-bottom sheet-enter max-h-[92vh] overflow-y-auto">
+      <div class="w-12 h-1.5 rounded-full bg-slate-300 dark:bg-slate-700 mx-auto mb-4"></div>
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-lg font-extrabold">GitHub Pages та Пароль</h3>
+        <button onclick="closeExportHelpModal()" class="p-2 rounded-xl bg-slate-100 dark:bg-[#222631] text-slate-500">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Налаштування пароля перед завантаженням -->
+      <div class="p-4 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-2.5 mb-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Пароль входу на сайт</span>
+          <label class="inline-flex items-center gap-1.5 text-xs font-semibold cursor-pointer">
+            <input type="checkbox" id="passwordEnabledToggle" onchange="togglePasswordProtection()" class="rounded text-rose-600 focus:ring-rose-500" />
+            <span>Увімкнено</span>
+          </label>
+        </div>
+        <div class="flex gap-2">
+          <input type="text" id="customPasswordInput" placeholder="Введіть новий пароль"
+            class="flex-1 text-sm font-bold px-3.5 py-2.5 rounded-xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36]" />
+          <button type="button" onclick="saveCustomPassword()" class="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold active:scale-95 transition">
+            Зберегти
+          </button>
+        </div>
+        <p class="text-[11px] text-slate-400">Після зміни пароля завантажте оновлений файл <strong>index.html</strong> нижче.</p>
+      </div>
+
+      <button onclick="downloadStandaloneHtml()" class="w-full py-3.5 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-lg shadow-emerald-600/25 flex items-center justify-center gap-2 active:scale-[0.98] transition mb-4">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        <span>Завантажити index.html для GitHub</span>
+      </button>
+
+      <div class="space-y-3 text-xs text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-[#0B0C0F] p-4 rounded-2xl border border-slate-200 dark:border-[#262A36]">
+        <div>
+          <div class="font-extrabold text-slate-900 dark:text-white mb-1">Як опублікувати на GitHub Pages за 2 хвилини:</div>
+          <ol class="list-decimal list-inside space-y-1.5 leading-relaxed">
+            <li>Натисніть зелену кнопку вище та збережіть файл <strong>index.html</strong>.</li>
+            <li>Зайдіть на <strong>github.com</strong> → натисніть <strong>New repository</strong> → назвіть, наприклад, <code>yt-family</code> (оберіть <strong>Public</strong>) → натисніть <strong>Create repository</strong>.</li>
+            <li>Натисніть <strong>uploading an existing file</strong> → виберіть ваш <strong>index.html</strong> → натисніть <strong>Commit changes</strong>.</li>
+            <li>Зайдіть у <strong>Settings → Pages</strong> → у пункті <em>Branch</em> виберіть <strong>main</strong> і натисніть <strong>Save</strong>.</li>
+            <li>Через 1 хвилину з'явиться постійне посилання вигляду <code>https://ваш-нік.github.io/yt-family/</code>.</li>
+          </ol>
+        </div>
+        <div class="pt-2 border-t border-slate-200 dark:border-[#262A36]">
+          <div class="font-extrabold text-slate-900 dark:text-white mb-0.5">Як ділитися оновленнями з учасниками:</div>
+          <p class="leading-relaxed">Коли хтось закине кошти, внесіть платіж у себе в додатку і натисніть синю кнопку <strong>«Поділитися»</strong> у верхньому меню — скопіюється посилання, у якому вже збережені актуальні баланси для хлопців!</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'yt_family_pay_state_v2';
+    const AUTH_SESSION_KEY = 'yt_family_unlocked_v1';
+    const APP_SECURITY = {
+      enabled: true,
+      password: '2026'
+    };
+
+    const MONTHS_UA = [
+      'Січень', 'Лютий', 'Березень', 'Квітень', 'Травень', 'Червень',
+      'Липень', 'Серпень', 'Вересень', 'Жовтень', 'Листопад', 'Грудень'
+    ];
+    const MONTHS_UA_GENITIVE = [
+      'січня', 'лютого', 'березня', 'квітня', 'травня', 'червня',
+      'липня', 'серпня', 'вересня', 'жовтня', 'листопада', 'грудня'
+    ];
+
+    // Початкові актуальні дані (Юра, Віталік, Влад; загальний тариф ділиться на 5 осіб)
+    const INITIAL_STATE = {
+      familySize: 5,
+      asOfMonth: '2026-11',
+      tariffs: [
+        { from: '2026-01', total: 150 },
+        { from: '2026-11', total: 300 }
+      ],
+      members: [
+        {
+          id: 'yura',
+          name: 'Юра',
+          role: 'Учасник сім’ї (1/5)',
+          startMonth: '2026-10',
+          selfCovered: false,
+          color: 'from-sky-500 to-blue-600',
+          payments: [
+            { id: 'p_yura_1', dateMonth: '2026-10', amount: 300, note: 'Оплата у жовтні 2026' }
+          ]
+        },
+        {
+          id: 'vitalik',
+          name: 'Віталік',
+          role: 'Учасник сім’ї (1/5)',
+          startMonth: '2026-04',
+          selfCovered: false,
+          color: 'from-emerald-500 to-teal-600',
+          payments: [
+            { id: 'p_vitalik_1', dateMonth: '2026-04', amount: 200, note: 'Внесок у квітні 2026' },
+            { id: 'p_vitalik_2', dateMonth: '2026-11', amount: 110, note: 'Доплата (разом 310 грн)' }
+          ]
+        },
+        {
+          id: 'vlad',
+          name: 'Влад',
+          role: 'Учасник сім’ї (1/5)',
+          startMonth: '2026-08',
+          selfCovered: false,
+          color: 'from-amber-500 to-orange-600',
+          payments: []
+        }
+      ]
+    };
+
+    let state = loadState();
+    let selectedPaymentMemberId = 'vlad';
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.members) && Array.isArray(parsed.tariffs)) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        console.warn('Не вдалося завантажити дані з localStorage', e);
+      }
+      return JSON.parse(JSON.stringify(INITIAL_STATE));
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Не вдалося зберегти стан', e);
+      }
+    }
+
+    function monthToIndex(ym) {
+      const [y, m] = ym.split('-').map(Number);
+      return y * 12 + (m - 1);
+    }
+
+    function indexToMonth(idx) {
+      const y = Math.floor(idx / 12);
+      const m = (idx % 12) + 1;
+      return `${y}-${String(m).padStart(2, '0')}`;
+    }
+
+    function formatMonthLabel(ym, genitive = false) {
+      const [y, m] = ym.split('-').map(Number);
+      const name = genitive ? MONTHS_UA_GENITIVE[m - 1] : MONTHS_UA[m - 1];
+      return `${name} ${y}`;
+    }
+
+    function formatMoney(val) {
+      const rounded = Math.round(val * 100) / 100;
+      return Number.isInteger(rounded) ? `${rounded} грн` : `${rounded.toFixed(2)} грн`;
+    }
+
+    function getTariffForMonth(ym) {
+      const targetIdx = monthToIndex(ym);
+      const sorted = [...state.tariffs].sort((a, b) => monthToIndex(a.from) - monthToIndex(b.from));
+      let active = sorted[0] || { from: '2026-01', total: 150 };
+      for (const t of sorted) {
+        if (monthToIndex(t.from) <= targetIdx) {
+          active = t;
+        }
+      }
+      return {
+        total: active.total,
+        perPerson: active.total / state.familySize
+      };
+    }
+
+    function calculateMemberStatus(member, asOfYm, extraAmount = 0) {
+      const startIdx = monthToIndex(member.startMonth);
+      const asOfIdx = monthToIndex(asOfYm);
+      const totalPaid = member.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0) + Number(extraAmount || 0);
+
+      let accrued = 0;
+      if (asOfIdx >= startIdx) {
+        for (let idx = startIdx; idx <= asOfIdx; idx++) {
+          accrued += getTariffForMonth(indexToMonth(idx)).perPerson;
+        }
+      }
+
+      const balance = Math.round((totalPaid - accrued) * 100) / 100;
+
+      let remainingFunds = totalPaid;
+      let cursorIdx = startIdx;
+      let lastFullPaidIdx = null;
+      let partialIntoNextAmount = 0;
+      let nextMonthCost = getTariffForMonth(indexToMonth(cursorIdx)).perPerson;
+
+      let safety = 0;
+      while (remainingFunds > 0 && safety < 240) {
+        const ym = indexToMonth(cursorIdx);
+        const cost = getTariffForMonth(ym).perPerson;
+        if (remainingFunds + 0.001 >= cost) {
+          remainingFunds = Math.round((remainingFunds - cost) * 100) / 100;
+          lastFullPaidIdx = cursorIdx;
+          cursorIdx++;
+        } else {
+          partialIntoNextAmount = remainingFunds;
+          nextMonthCost = cost;
+          remainingFunds = 0;
+        }
+        safety++;
+      }
+
+      if (partialIntoNextAmount === 0) {
+        nextMonthCost = getTariffForMonth(indexToMonth(cursorIdx)).perPerson;
+      }
+
+      const paidThroughYm = lastFullPaidIdx !== null ? indexToMonth(lastFullPaidIdx) : null;
+      const nextTargetYm = indexToMonth(cursorIdx);
+      const missingForNextMonth = Math.round((nextMonthCost - partialIntoNextAmount) * 100) / 100;
+
+      return {
+        totalPaid,
+        accrued,
+        balance,
+        paidThroughYm,
+        nextTargetYm,
+        partialIntoNextAmount,
+        nextMonthCost,
+        missingForNextMonth
+      };
+    }
+
+    function renderApp() {
+      const asOfYm = state.asOfMonth;
+      document.getElementById('asOfMonthLabel').textContent = formatMonthLabel(asOfYm);
+
+      const tariff = getTariffForMonth(asOfYm);
+      document.getElementById('currentRateText').textContent = formatMoney(tariff.total) + '/міс';
+      document.getElementById('perPersonRateText').textContent = formatMoney(tariff.perPerson) + '/міс';
+
+      let totalDebt = 0;
+      let totalAdvance = 0;
+
+      const listEl = document.getElementById('membersList');
+      listEl.innerHTML = '';
+
+      state.members.forEach((member) => {
+        const st = calculateMemberStatus(member, asOfYm);
+        if (st.balance < -0.01) {
+          totalDebt += Math.abs(st.balance);
+        } else if (st.balance > 0.01) {
+          totalAdvance += st.balance;
+        }
+
+        const isDebt = st.balance < -0.01;
+        const isAdvance = st.balance > 0.01;
+
+        let badgeHtml = '';
+        let statusLine = '';
+        let subLine = '';
+
+        if (isDebt) {
+          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-rose-500/15 text-rose-500 dark:text-rose-400 border border-rose-500/20">Борг ${formatMoney(Math.abs(st.balance))}</span>`;
+          statusLine = `До сплати: <span class="text-rose-500 dark:text-rose-400 font-extrabold">${formatMoney(Math.abs(st.balance))}</span>`;
+          subLine = st.paidThroughYm
+            ? `Оплачено по ${formatMonthLabel(st.paidThroughYm)} включно (з ${formatMonthLabel(member.startMonth, true)})`
+            : `Не оплачено з ${formatMonthLabel(member.startMonth, true)} • Внесено: ${formatMoney(st.totalPaid)}`;
+        } else if (isAdvance) {
+          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">Аванс +${formatMoney(st.balance)}</span>`;
+          statusLine = st.paidThroughYm
+            ? `Оплачено по <span class="text-emerald-600 dark:text-emerald-400 font-extrabold">${formatMonthLabel(st.paidThroughYm)}</span> включно`
+            : `Аванс +${formatMoney(st.balance)}`;
+          subLine = st.partialIntoNextAmount > 0
+            ? `+ ${formatMoney(st.partialIntoNextAmount)} на ${formatMonthLabel(st.nextTargetYm)} (ще ${formatMoney(st.missingForNextMonth)} до повного місяця)`
+            : `Залишок авансу після ${formatMonthLabel(asOfYm, true)}: +${formatMoney(st.balance)}`;
+        } else {
+          badgeHtml = `<span class="px-3 py-1 rounded-full text-xs font-extrabold bg-slate-500/15 text-slate-600 dark:text-slate-300">Закрито рівно</span>`;
+          statusLine = `Оплачено по <span class="font-extrabold">${formatMonthLabel(asOfYm)}</span> включно`;
+          subLine = `Боргу та авансу немає • Внесено: ${formatMoney(st.totalPaid)}`;
+        }
+
+        const card = document.createElement('div');
+        card.className = 'rounded-3xl bg-white dark:bg-[#16181F] border border-slate-200 dark:border-[#262A36] p-4 shadow-sm transition active:scale-[0.99]';
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-3">
+            <div onclick="openMemberDetail('${member.id}')" class="flex items-center gap-3 flex-1 cursor-pointer min-w-0">
+              <div class="w-11 h-11 rounded-2xl bg-gradient-to-br ${member.color} flex items-center justify-center text-white font-extrabold text-base shadow-md shrink-0">
+                ${member.name.charAt(0)}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base font-extrabold truncate">${member.name}</h3>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">${member.role} • з ${formatMonthLabel(member.startMonth, true)}</p>
+              </div>
+            </div>
+            <div class="shrink-0">
+              ${badgeHtml}
+            </div>
+          </div>
+
+          <div onclick="openMemberDetail('${member.id}')" class="mt-3 pt-3 border-t border-slate-100 dark:border-[#222631] cursor-pointer space-y-1">
+            <div class="text-sm font-semibold text-slate-800 dark:text-slate-200">${statusLine}</div>
+            <div class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">${subLine}</div>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between gap-2">
+            <div class="text-[11px] font-medium text-slate-400">
+              Всього внесено: <strong class="text-slate-700 dark:text-slate-200">${formatMoney(st.totalPaid)}</strong>
+            </div>
+            <div class="flex items-center gap-1.5">
+              <button onclick="openMemberDetail('${member.id}')" class="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-[#222631] text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-[#2a2f3d] transition">
+                Історія
+              </button>
+              <button onclick="openAddPaymentModal('${member.id}')" class="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-extrabold hover:bg-rose-500/20 transition">
+                + Внесок
+              </button>
+            </div>
+          </div>
+        `;
+        listEl.appendChild(card);
+      });
+
+      document.getElementById('totalDebtText').textContent = formatMoney(totalDebt);
+      document.getElementById('totalAdvanceText').textContent = totalAdvance > 0 ? `+${formatMoney(totalAdvance)}` : '0 грн';
+    }
+
+    function shiftAsOfMonth(delta) {
+      const nextIdx = monthToIndex(state.asOfMonth) + delta;
+      state.asOfMonth = indexToMonth(nextIdx);
+      saveState();
+      renderApp();
+    }
+
+    function openAddPaymentModal(preselectMemberId = null) {
+      if (preselectMemberId) {
+        selectedPaymentMemberId = preselectMemberId;
+      }
+      document.getElementById('paymentAmount').value = '';
+      document.getElementById('paymentNote').value = '';
+      document.getElementById('paymentMonth').value = state.asOfMonth;
+      renderMemberSelectorGrid();
+      updateLiveForecast();
+      document.getElementById('paymentModal').classList.remove('hidden');
+      setTimeout(() => {
+        document.getElementById('paymentAmount').focus();
+      }, 150);
+    }
+
+    function closeAddPaymentModal() {
+      document.getElementById('paymentModal').classList.add('hidden');
+    }
+
+    function renderMemberSelectorGrid() {
+      const grid = document.getElementById('memberSelectorGrid');
+      grid.innerHTML = '';
+      state.members.forEach((m) => {
+        const isSelected = m.id === selectedPaymentMemberId;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => {
+          selectedPaymentMemberId = m.id;
+          renderMemberSelectorGrid();
+          updateLiveForecast();
+        };
+        btn.className = isSelected
+          ? 'py-2.5 px-2 rounded-2xl border-2 border-rose-500 bg-rose-500/10 text-rose-600 dark:text-rose-400 font-extrabold text-xs text-center transition'
+          : 'py-2.5 px-2 rounded-2xl border border-slate-200 dark:border-[#262A36] bg-slate-50 dark:bg-[#0B0C0F] text-slate-700 dark:text-slate-300 font-semibold text-xs text-center transition';
+        btn.textContent = m.name;
+        grid.appendChild(btn);
+      });
+    }
+
+    function setQuickAmount(amount) {
+      const input = document.getElementById('paymentAmount');
+      input.value = amount;
+      updateLiveForecast();
+    }
+
+    function updateLiveForecast() {
+      const member = state.members.find((m) => m.id === selectedPaymentMemberId) || state.members[0];
+      const amountVal = parseFloat(document.getElementById('paymentAmount').value);
+      const mainEl = document.getElementById('liveForecastMain');
+      const subEl = document.getElementById('liveForecastSub');
+      const boxEl = document.getElementById('liveForecastBox');
+
+      if (!amountVal || amountVal <= 0) {
+        const cur = calculateMemberStatus(member, state.asOfMonth, 0);
+        boxEl.className = 'rounded-2xl p-4 bg-slate-100 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] space-y-1.5';
+        if (cur.balance < -0.01) {
+          mainEl.innerHTML = `${member.name}: зараз борг <span class="text-rose-500">${formatMoney(Math.abs(cur.balance))}</span>`;
+          subEl.textContent = `Введіть суму поповнення, щоб побачити, по який місяць закриється оплата.`;
+        } else if (cur.balance > 0.01) {
+          mainEl.innerHTML = `${member.name}: зараз аванс <span class="text-emerald-500">+${formatMoney(cur.balance)}</span>`;
+          subEl.textContent = cur.paidThroughYm
+            ? `Зараз оплачено по ${formatMonthLabel(cur.paidThroughYm)} включно.`
+            : `Введіть суму, щоб продовжити підписку.`;
+        } else {
+          mainEl.textContent = `${member.name}: по ${formatMonthLabel(state.asOfMonth)} усе закрито`;
+          subEl.textContent = `Введіть суму авансу на майбутні місяці.`;
+        }
+        return;
+      }
+
+      const next = calculateMemberStatus(member, state.asOfMonth, amountVal);
+
+      if (next.balance < -0.01) {
+        boxEl.className = 'rounded-2xl p-4 bg-rose-500/10 border border-rose-500/30 space-y-1.5';
+        mainEl.innerHTML = `Залишиться борг: <span class="text-rose-500">${formatMoney(Math.abs(next.balance))}</span>`;
+        subEl.textContent = next.paidThroughYm
+          ? `Після внеску ${formatMoney(amountVal)} буде оплачено по ${formatMonthLabel(next.paidThroughYm)} включно.`
+          : `Внесеної суми (${formatMoney(next.totalPaid)}) ще не вистачає на перший місяць (${formatMonthLabel(member.startMonth)}).`;
+      } else if (next.balance > 0.01) {
+        boxEl.className = 'rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-1.5';
+        mainEl.innerHTML = next.paidThroughYm
+          ? `Оплачено по <span class="text-emerald-500">${formatMonthLabel(next.paidThroughYm)}</span> включно`
+          : `Аванс: <span class="text-emerald-500">+${formatMoney(next.balance)}</span>`;
+
+        const extraText = next.partialIntoNextAmount > 0
+          ? `Також залишається ${formatMoney(next.partialIntoNextAmount)} на ${formatMonthLabel(next.nextTargetYm)} (не вистачає ${formatMoney(next.missingForNextMonth)}).`
+          : `Залишок авансу після ${formatMonthLabel(state.asOfMonth, true)}: +${formatMoney(next.balance)}.`;
+        subEl.textContent = extraText;
+      } else {
+        boxEl.className = 'rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/30 space-y-1.5';
+        mainEl.innerHTML = `Ідеально! Закрито по <span class="text-emerald-500">${formatMonthLabel(state.asOfMonth)}</span> включно`;
+        subEl.textContent = `Борг погашено повністю, залишок авансу 0 грн.`;
+      }
+    }
+
+    function handleSavePayment(e) {
+      e.preventDefault();
+      const amount = parseFloat(document.getElementById('paymentAmount').value);
+      const dateMonth = document.getElementById('paymentMonth').value || state.asOfMonth;
+      const note = document.getElementById('paymentNote').value.trim();
+
+      if (!amount || amount <= 0) return;
+
+      const member = state.members.find((m) => m.id === selectedPaymentMemberId);
+      if (!member) return;
+
+      member.payments.push({
+        id: 'pay_' + Date.now(),
+        dateMonth,
+        amount,
+        note: note || `Оплата (${formatMonthLabel(dateMonth, true)})`
+      });
+
+      saveState();
+      closeAddPaymentModal();
+      renderApp();
+      showToast(`Зараховано ${formatMoney(amount)} для ${member.name}`);
+    }
+
+    function openMemberDetail(memberId) {
+      const member = state.members.find((m) => m.id === memberId);
+      if (!member) return;
+
+      const st = calculateMemberStatus(member, state.asOfMonth);
+      const container = document.getElementById('memberDetailContent');
+
+      const paymentsHtml = member.payments.length === 0
+        ? `<div class="text-center py-6 text-xs text-slate-400 bg-slate-50 dark:bg-[#0B0C0F] rounded-2xl">Поки що немає жодного платежу</div>`
+        : member.payments.map((p) => `
+            <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200/70 dark:border-[#262A36]">
+              <div>
+                <div class="text-sm font-extrabold text-emerald-600 dark:text-emerald-400">+${formatMoney(p.amount)}</div>
+                <div class="text-xs text-slate-500 dark:text-slate-400">${p.note} • ${formatMonthLabel(p.dateMonth)}</div>
+              </div>
+              <button onclick="confirmDeletePayment('${member.id}', '${p.id}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-500/10 transition" title="Видалити платіж">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                </svg>
+              </button>
+            </div>
+          `).join('');
+
+      container.innerHTML = `
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br ${member.color} flex items-center justify-center text-white font-extrabold text-lg">
+              ${member.name.charAt(0)}
+            </div>
+            <div>
+              <h3 class="text-lg font-extrabold">${member.name}</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">У сім'ї з ${formatMonthLabel(member.startMonth, true)}</p>
+            </div>
+          </div>
+          <button onclick="closeMemberDetailModal()" class="p-2 rounded-xl bg-slate-100 dark:bg-[#222631] text-slate-500">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2 mb-4">
+          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
+            <div class="text-[11px] text-slate-400">Внесено</div>
+            <div class="text-sm font-extrabold mt-0.5">${formatMoney(st.totalPaid)}</div>
+          </div>
+          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
+            <div class="text-[11px] text-slate-400">Нараховано</div>
+            <div class="text-sm font-extrabold mt-0.5">${formatMoney(st.accrued)}</div>
+          </div>
+          <div class="p-3 rounded-2xl bg-slate-100 dark:bg-[#0B0C0F] text-center">
+            <div class="text-[11px] text-slate-400">Баланс</div>
+            <div class="text-sm font-extrabold mt-0.5 ${st.balance < 0 ? 'text-rose-500' : 'text-emerald-500'}">
+              ${st.balance > 0 ? '+' : ''}${formatMoney(st.balance)}
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-4 p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36] text-xs space-y-1">
+          <div class="font-bold text-slate-700 dark:text-slate-200">
+            ${st.paidThroughYm ? `Повністю оплачено по: ${formatMonthLabel(st.paidThroughYm)} включно` : 'Жоден місяць ще не закритий повністю'}
+          </div>
+          <div class="text-slate-500 dark:text-slate-400">
+            ${st.partialIntoNextAmount > 0
+              ? `На ${formatMonthLabel(st.nextTargetYm)} є ${formatMoney(st.partialIntoNextAmount)} із ${formatMoney(st.nextMonthCost)} (залишок доплати: ${formatMoney(st.missingForNextMonth)}).`
+              : `Наступний неоплачений місяць: ${formatMonthLabel(st.nextTargetYm)} (${formatMoney(st.nextMonthCost)}).`}
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Історія внесків (${member.payments.length})</span>
+          <button onclick="closeMemberDetailModal(); openAddPaymentModal('${member.id}')" class="text-xs font-extrabold text-rose-500">+ Додати платіж</button>
+        </div>
+
+        <div class="space-y-2 mb-2">${paymentsHtml}</div>
+      `;
+
+      document.getElementById('memberDetailModal').classList.remove('hidden');
+    }
+
+    function closeMemberDetailModal() {
+      document.getElementById('memberDetailModal').classList.add('hidden');
+    }
+
+    function confirmDeletePayment(memberId, paymentId) {
+      openConfirmDialog(
+        'Видалити платіж?',
+        'Сума буде віднята, а баланс та місяць оплати автоматично перерахуються.',
+        () => {
+          const member = state.members.find((m) => m.id === memberId);
+          if (member) {
+            member.payments = member.payments.filter((p) => p.id !== paymentId);
+            saveState();
+            renderApp();
+            openMemberDetail(memberId);
+            showToast('Платіж видалено');
+          }
+        }
+      );
+    }
+
+    function openTariffModal() {
+      renderTariffHistoryList();
+      document.getElementById('tariffModal').classList.remove('hidden');
+    }
+
+    function closeTariffModal() {
+      document.getElementById('tariffModal').classList.add('hidden');
+    }
+
+    function renderTariffHistoryList() {
+      const list = document.getElementById('tariffHistoryList');
+      const sorted = [...state.tariffs].sort((a, b) => monthToIndex(a.from) - monthToIndex(b.from));
+      list.innerHTML = sorted.map((t, idx) => `
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-[#0B0C0F] border border-slate-200 dark:border-[#262A36]">
+          <div>
+            <div class="text-sm font-extrabold">З ${formatMonthLabel(t.from, true)}</div>
+            <div class="text-xs text-slate-500">Загальна: <strong>${formatMoney(t.total)}/міс</strong> → по <strong>${formatMoney(t.total / state.familySize)}/міс</strong> з людини</div>
+          </div>
+          ${idx > 0 ? `
+            <button onclick="deleteTariff('${t.from}')" class="p-2 rounded-xl text-slate-400 hover:text-rose-500 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          ` : '<span class="text-[11px] font-bold text-slate-400 px-2">Базовий</span>'}
+        </div>
+      `).join('');
+    }
+
+    function handleAddTariff(e) {
+      e.preventDefault();
+      const from = document.getElementById('newTariffMonth').value;
+      const total = parseFloat(document.getElementById('newTariffTotal').value);
+      if (!from || !total || total <= 0) return;
+
+      const existing = state.tariffs.find((t) => t.from === from);
+      if (existing) {
+        existing.total = total;
+      } else {
+        state.tariffs.push({ from, total });
+      }
+      saveState();
+      renderTariffHistoryList();
+      renderApp();
+      showToast('Тариф оновлено');
+    }
+
+    function deleteTariff(fromYm) {
+      state.tariffs = state.tariffs.filter((t) => t.from !== fromYm);
+      saveState();
+      renderTariffHistoryList();
+      renderApp();
+      showToast('Тариф видалено');
+    }
+
+    function copyChatReport() {
+      const asOfLabel = formatMonthLabel(state.asOfMonth);
+      const tariff = getTariffForMonth(state.asOfMonth);
+      const lines = [
+        `📺 YouTube Сім'я — стан оплат на ${asOfLabel}:`,
+        `Тариф: ${formatMoney(tariff.total)}/міс (по ${formatMoney(tariff.perPerson)} з людини)`,
+        ``
+      ];
+
+      state.members.forEach((m) => {
+        const st = calculateMemberStatus(m, state.asOfMonth);
+        if (st.balance < -0.01) {
+          lines.push(`• ${m.name}: до сплати ${formatMoney(Math.abs(st.balance))}`);
+        } else if (st.balance > 0.01) {
+          const through = st.paidThroughYm ? `по ${formatMonthLabel(st.paidThroughYm)} включно` : '';
+          const extra = st.partialIntoNextAmount > 0 ? ` + ${formatMoney(st.partialIntoNextAmount)} на ${formatMonthLabel(st.nextTargetYm)}` : '';
+          lines.push(`• ${m.name}: аванс +${formatMoney(st.balance)} (оплачено ${through}${extra})`);
+        } else {
+          lines.push(`• ${m.name}: оплачено по ${formatMonthLabel(state.asOfMonth)} включно`);
+        }
+      });
+
+      const text = lines.join('\n');
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Звіт скопійовано для чату!');
+      } catch (err) {
+        showToast('Не вдалося скопіювати');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    let pendingConfirmCallback = null;
+    function openConfirmDialog(title, message, onConfirm) {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMessage').textContent = message;
+      pendingConfirmCallback = onConfirm;
+      document.getElementById('confirmDialog').classList.remove('hidden');
+    }
+
+    function closeConfirmDialog() {
+      document.getElementById('confirmDialog').classList.add('hidden');
+      pendingConfirmCallback = null;
+    }
+
+    document.getElementById('confirmActionBtn').addEventListener('click', () => {
+      if (pendingConfirmCallback) pendingConfirmCallback();
+      closeConfirmDialog();
+    });
+
+    function openResetConfirm() {
+      openConfirmDialog(
+        'Скинути до початкових даних?',
+        'Усі додані вручну платежі будуть видалені, а баланс повернеться до стану на листопад 2026 (Юра 300, Віталік 310, Влад 0).',
+        () => {
+          state = JSON.parse(JSON.stringify(INITIAL_STATE));
+          saveState();
+          renderApp();
+          showToast('Дані відновлено до початкових');
+        }
+      );
+    }
+
+    function toggleTheme() {
+      const html = document.documentElement;
+      const isDark = html.classList.toggle('dark');
+      localStorage.setItem('yt_family_theme', isDark ? 'dark' : 'light');
+    }
+
+    let toastTimer = null;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toastText').textContent = msg;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 2400);
+    }
+
+    function openExportHelpModal() {
+      document.getElementById('passwordEnabledToggle').checked = APP_SECURITY.enabled;
+      document.getElementById('customPasswordInput').value = APP_SECURITY.password;
+      document.getElementById('exportHelpModal').classList.remove('hidden');
+    }
+
+    function closeExportHelpModal() {
+      document.getElementById('exportHelpModal').classList.add('hidden');
+    }
+
+    function togglePasswordProtection() {
+      APP_SECURITY.enabled = document.getElementById('passwordEnabledToggle').checked;
+      localStorage.setItem('yt_family_security', JSON.stringify(APP_SECURITY));
+      showToast(APP_SECURITY.enabled ? 'Захист паролем увімкнено' : 'Захист паролем вимкнено');
+    }
+
+    function saveCustomPassword() {
+      const val = document.getElementById('customPasswordInput').value.trim();
+      if (!val) {
+        showToast('Пароль не може бути порожнім');
+        return;
+      }
+      APP_SECURITY.password = val;
+      APP_SECURITY.enabled = true;
+      document.getElementById('passwordEnabledToggle').checked = true;
+      localStorage.setItem('yt_family_security', JSON.stringify(APP_SECURITY));
+      sessionStorage.setItem(AUTH_SESSION_KEY, val);
+      showToast('Пароль збережено! Завантажте оновлений файл');
+    }
+
+    function handleUnlock(e) {
+      e.preventDefault();
+      const entered = document.getElementById('lockPasswordInput').value.trim();
+      if (entered === APP_SECURITY.password) {
+        sessionStorage.setItem(AUTH_SESSION_KEY, entered);
+        document.getElementById('lockScreen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+        document.getElementById('lockErrorMsg').classList.add('hidden');
+      } else {
+        document.getElementById('lockErrorMsg').classList.remove('hidden');
+      }
+    }
+
+    function copyShareLinkWithData() {
+      try {
+        const jsonStr = JSON.stringify(state);
+        const encoded = btoa(encodeURIComponent(jsonStr));
+        const baseUrl = window.location.href.split('#')[0];
+        const shareUrl = `${baseUrl}#data=${encoded}`;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(shareUrl);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = shareUrl;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast('Посилання з актуальними балансами скопійовано!');
+      } catch (err) {
+        showToast('Не вдалося сформувати посилання');
+      }
+    }
+
+    function loadSharedStateFromHash() {
+      try {
+        const hash = window.location.hash;
+        if (hash && hash.startsWith('#data=')) {
+          const encoded = hash.slice(6);
+          const decoded = JSON.parse(decodeURIComponent(atob(encoded)));
+          if (decoded && Array.isArray(decoded.members) && Array.isArray(decoded.tariffs)) {
+            state = decoded;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          }
+        }
+      } catch (e) {
+        console.warn('Помилка читання даних із посилання', e);
+      }
+    }
+
+    function downloadStandaloneHtml() {
+      try {
+        let htmlSource = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const serializedState = JSON.stringify(state, null, 6);
+        const serializedSecurity = JSON.stringify(APP_SECURITY, null, 6);
+        htmlSource = htmlSource.replace(
+          /const INITIAL_STATE = \{[\s\S]*?\n    \};/,
+          `const INITIAL_STATE = ${serializedState};`
+        );
+        htmlSource = htmlSource.replace(
+          /const APP_SECURITY = \{[\s\S]*?\n    \};/,
+          `const APP_SECURITY = ${serializedSecurity};`
+        );
+        const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'index.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('Файл index.html завантажується!');
+      } catch (err) {
+        showToast('Помилка завантаження файлу');
+      }
+    }
+
+    // Ініціалізація при завантаженні
+    (function init() {
+      const savedTheme = localStorage.getItem('yt_family_theme');
+      if (savedTheme === 'light') {
+        document.documentElement.classList.remove('dark');
+      }
+      try {
+        const savedSec = JSON.parse(localStorage.getItem('yt_family_security'));
+        if (savedSec && typeof savedSec.password === 'string') {
+          APP_SECURITY.enabled = savedSec.enabled;
+          APP_SECURITY.password = savedSec.password;
+        }
+      } catch (e) {}
+
+      loadSharedStateFromHash();
+
+      const unlocked = !APP_SECURITY.enabled || sessionStorage.getItem(AUTH_SESSION_KEY) === APP_SECURITY.password;
+      if (unlocked) {
+        document.getElementById('lockScreen').classList.add('hidden');
+        document.getElementById('app').classList.remove('hidden');
+      }
+      renderApp();
+    })();
+  </script>
+</body>
+</html>
